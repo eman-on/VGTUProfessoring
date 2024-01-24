@@ -8,8 +8,8 @@
 // @match        https://mano.vilniustech.lt/lecturercourses/site?*
 // @match        https://mano.vilniustech.lt/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=vgtu.lt
-// @updateURL    https://github.com/TheRealJoelmatic/VGTUProfessoring/core/iM_main-user.js
-// @downloadURL  https://github.com/TheRealJoelmatic/VGTUProfessoring/core/iM_main-user.js
+// @updateURL    https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main-user.js
+// @downloadURL  https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main-user.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM.setValue
@@ -1492,7 +1492,7 @@
     
     /* Check For Updates */
     function checkForUpdate(){
-        const scriptUrl = 'https://github.com/TheRealJoelmatic/VGTUProfessoring/core/iM_main-user.js';
+        const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main-user.js';
 
         fetch(scriptUrl)
         .then(response => response.text())
