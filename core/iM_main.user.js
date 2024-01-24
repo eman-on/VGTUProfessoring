@@ -17,6 +17,7 @@
 // @grant        GM.getValue
 // @grant        unsafeWindow
 // ==/UserScript==
+const scriptUrl = 'https://raw.githubusercontent.com/eman-on/VGTUProfessoring/main/core/iM_main.user.js';
 
 (async function init() {
   'use strict';
@@ -1438,30 +1439,37 @@
       }
     }
 
-    Core.popup = function (text, classN='', timer=10000) {
+    Core.popup = function (text, uid='', classN='', timer=10000) {
       var div = document.getElementById('noCore_popup');
       var event = null;
       if(div){
-          //clearTimeout(div.timeOut);
           event = div.eventMessage;
-          //document.body.removeChild(div);
-          setTimeout(()=>{
-              div.setAttribute('style',`bottom:${div.clientHeight+24}px !important`);
-          },10);
+          if(div.UID === uid){
+              clearTimeout(div.timeOut);
+              document.body.removeChild(div);
+          }
+          else{
+              setTimeout(()=>{
+                  div.setAttribute('style',`bottom:${div.clientHeight+24}px !important`);
+              },10);
+          }
       };
       if(!text){return;}
       div = document.createElement('div');
       div.id = 'noCore_popup';
+      div.UID = uid;
       div.className = 'noCore_popup '+classN;
       div.innerHTML = `<p>${text}</p>`;
       document.body.appendChild(div);
       div.timeOut = setTimeout(function () { document.body.removeChild(this) }.bind(div), timer)
-      var button = div.querySelector('button');
-      function action(){
-          this.eventMessage();
+      var button = [...div.querySelectorAll('button')];
+      function action(button){
+          this.eventMessage(button);
       }
-      if(button){
-          button.addEventListener('click', action.bind(div));
+      if(button.length>0){
+          button.forEach((b)=>{
+             b.addEventListener('click', action.bind(div,b));
+          })
       }
       return div;
     }
@@ -1477,14 +1485,16 @@
             var mess = messages.shift();
             if(mess){
                 var bottom = messages.length>0?'<button>Next</button>':'<button>Close</button>';
-                var dom = Core.popup(mess+bottom, 'help', 9999999);
+                var dom = Core.popup(mess+bottom, 'helpPOP', 'help', 9999999);
                 dom.eventMessage = showHelp;
             }
             else{
-                Core.popup();
+                Core.popup(false,'helpPOP');
             }
         }
     }
+
+    checkForUpdate(Core);
 
     return Core;
   }
@@ -1492,9 +1502,8 @@
 
 
     /* Check For Updates */
-    (function checkForUpdate(){
+    function checkForUpdate(noCore){
         if(!updateCheck){return};
-        const scriptUrl = 'https://raw.githubusercontent.com/eman-on/VGTUProfessoring/main/core/iM_main.user.js';
 
         fetch(scriptUrl)
         .then(response => response.text())
@@ -1506,12 +1515,13 @@
                 const currentVersion = parseFloat(GM_info.script.version);
 
                 if (githubVersion > currentVersion) {
-                    console.log('VGTUProfessoring: A new version is available. Updating...');
-
-                    var result = window.confirm("VGTUProfessoring: A new version is available. Please update your script.");
-
-                    if (result) {
-                        window.location.replace(scriptUrl);
+                    var pop = noCore.popup('VGTUProfessoring \nNew version is available.<div style="display: flex;justify-content: space-around;"><button style="margin:0;">Update</button><button style="margin:0;">Cancel</button></div>','',10);
+                    pop.eventMessage = function(button){
+                        noCore.popup(false);
+                        var responce = button.innerText;
+                        if(responce === 'Update'){
+                            window.location.replace(scriptUrl);
+                        }
                     }
 
                 } else {
@@ -1524,5 +1534,5 @@
         .catch(error => {
             console.error('VGTUProfessoring: Error checking for updates:', error);
         });
-    })();
+    }
 })();
