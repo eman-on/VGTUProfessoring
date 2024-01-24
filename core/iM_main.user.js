@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         VGTU - Professorin
-// @version      0.4
+// @version      0.5
 // @description  Table with ALL students, Exam and Labs grades automation, Core comparer
 // @author       mrNull
 // @match        http://acm.vgtu.lt/*
@@ -8,8 +8,9 @@
 // @match        https://mano.vilniustech.lt/lecturercourses/site?*
 // @match        https://mano.vilniustech.lt/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=vgtu.lt
-// @updateURL    https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main-user.js
-// @downloadURL  https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main-user.js
+// @updateURL    https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js
+// @downloadURL  https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js
+// @updateURL    https://raw.githubusercontent.com/eman-on/VGTUProfessoring/main/core/iM_main.user.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM.setValue
@@ -1488,11 +1489,12 @@
     return Core;
   }
 
-    
-    
+
+
     /* Check For Updates */
-    function checkForUpdate(){
-        const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main-user.js';
+    (function checkForUpdate(){
+        if(!updateCheck){return};
+        const scriptUrl = 'https://raw.githubusercontent.com/eman-on/VGTUProfessoring/main/core/iM_main.user.js';
 
         fetch(scriptUrl)
         .then(response => response.text())
@@ -1504,25 +1506,23 @@
                 const currentVersion = parseFloat(GM_info.script.version);
 
                 if (githubVersion > currentVersion) {
-                    console.log('Remove Adblock Thing: A new version is available. Please update your script.');
+                    console.log('VGTUProfessoring: A new version is available. Updating...');
 
-                    var result = window.confirm("Remove Adblock Thing: A new version is available. Please update your script.");
+                    var result = window.confirm("VGTUProfessoring: A new version is available. Please update your script.");
 
                     if (result) {
                         window.location.replace(scriptUrl);
                     }
 
                 } else {
-                    console.log('Remove Adblock Thing: You have the latest version of the script.');
+                    console.log('VGTUProfessoring: You have the latest version of the script.');
                 }
             } else {
-                console.error('Remove Adblock Thing: Unable to extract version from the GitHub script.');
+                console.error('VGTUProfessoring: Unable to extract version from the GitHub script.');
             }
         })
         .catch(error => {
-            hasIgnoredUpdate = true;
-            console.error('Remove Adblock Thing: Error checking for updates:', error);
+            console.error('VGTUProfessoring: Error checking for updates:', error);
         });
-        hasIgnoredUpdate = true;
-    }
+    })();
 })();
