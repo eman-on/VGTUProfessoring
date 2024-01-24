@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         VGTU - Professorin
-// @version      0.5
+// @version      0.1
 // @description  Table with ALL students, Exam and Labs grades automation, Core comparer
 // @author       mrNull
 // @match        http://acm.vgtu.lt/*
@@ -10,14 +10,15 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=vgtu.lt
 // @updateURL    https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js
 // @downloadURL  https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js
-// @updateURL    https://raw.githubusercontent.com/eman-on/VGTUProfessoring/main/core/iM_main.user.js
+// @updateURL    https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM.setValue
 // @grant        GM.getValue
 // @grant        unsafeWindow
 // ==/UserScript==
-const scriptUrl = 'https://raw.githubusercontent.com/eman-on/VGTUProfessoring/main/core/iM_main.user.js';
+const checkUrl = 'https://raw.githubusercontent.com/eman-on/VGTUProfessoring/main/core/iM_main.user.js';
+const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js';
 
 (async function init() {
   'use strict';
@@ -1504,23 +1505,33 @@ const scriptUrl = 'https://raw.githubusercontent.com/eman-on/VGTUProfessoring/ma
     /* Check For Updates */
     function checkForUpdate(noCore){
         if(!updateCheck){return};
-
-        fetch(scriptUrl)
+        var lastTry = localStorage.getItem('VGTUProfessoring_updateTry');
+        if(lastTry){
+            lastTry = Math.ceil((new Date().getTime() - new Date(JSON.parse(lastTry)).getTime()) / 1000/60/60/24)-1;
+        }
+        else{
+            localStorage.setItem('VGTUProfessoring_updateTry',JSON.stringify(new Date()))
+            lastTry = 0;
+        }
+        if(lastTry<1){return}
+        fetch(checkUrl)
         .then(response => response.text())
         .then(data => {
-            // Extract version from the script on GitHub
             const match = data.match(/@version\s+(\d+\.\d+)/);
             if (match) {
                 const githubVersion = parseFloat(match[1]);
                 const currentVersion = parseFloat(GM_info.script.version);
 
                 if (githubVersion > currentVersion) {
-                    var pop = noCore.popup('VGTUProfessoring \nNew version is available.<div style="display: flex;justify-content: space-around;"><button style="margin:0;">Update</button><button style="margin:0;">Cancel</button></div>','',10);
+                    var pop = noCore.popup('VGTUProfessoring \nNew version available.<div style="display: flex;justify-content: space-around;"><button style="margin:0;">Update</button><button style="margin:0;">Cancel</button></div>','',10);
                     pop.eventMessage = function(button){
                         noCore.popup(false);
                         var responce = button.innerText;
                         if(responce === 'Update'){
                             window.location.replace(scriptUrl);
+                        }
+                        else{
+                            localStorage.setItem('VGTUProfessoring_updateTry',JSON.stringify(new Date()));
                         }
                     }
 
