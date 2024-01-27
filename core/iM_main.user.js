@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         VGTU - Professorin
-// @version      0.3
+// @version      0.2
 // @description  Table with ALL students, Exam and Labs grades automation, Core comparer
 // @author       mrNull
 // @match        http://acm.vgtu.lt/*
