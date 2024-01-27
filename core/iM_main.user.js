@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         VGTU - Professorin
-// @version      0.1
+// @version      0.2
 // @description  Table with ALL students, Exam and Labs grades automation, Core comparer
 // @author       mrNull
 // @match        http://acm.vgtu.lt/*
@@ -17,6 +17,16 @@
 // @grant        GM.getValue
 // @grant        unsafeWindow
 // ==/UserScript==
+
+/**
+ * Update Notes:
+ * Qualify/Disqualify API integrated
+ * iRunner comparer for exam tasks implemented (move,warning,skip)
+ * Comparer selection popup
+ * Move function (prev/next student) in comparer reworked
+ * Settings for comparers are added - skip disqualifyed tasks, increment right window
+ */
+
 const checkUrl = 'https://raw.githubusercontent.com/eman-on/VGTUProfessoring/main/core/iM_main.user.js';
 const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js';
 
@@ -24,7 +34,7 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
   'use strict';
   /* Specify minimal required grade to get access to the exam */
   // Checks for updates
-  const updateCheck = true;
+  const updateCheck = false;
   const minGrade = 5;
   const Core = CORE();
   var storage = null;
@@ -73,6 +83,7 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
       animation-duration: 0.4s;
       animation-fill-mode: forwards;
       max-width: 300px;
+      z-index: 100;
     }
     @keyframes moveUp {
       from {bottom: -300px;}
@@ -89,6 +100,18 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
     .noCore_popup button{
       display: block;
       margin-left: auto;
+    }
+    .noCore_popup .buttons{
+      display: flex;
+      justify-content: space-around;
+      padding-bottom: 8px;
+      padding-left: 2px;
+      padding-right: 2px;
+    }
+    .noCore_popup .buttons>button{
+      margin:0;
+      margin-left: 2px;
+      margin-right: 2px;
     }
     .noCore_popup:before{
       content: 'Information';
@@ -625,12 +648,14 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
       gradeDom.innerText = res;
       if (res < minGrade || !allLabsHasAtleast1) {
         gradeDom.classList.add('issue');
+        storage[studentList.year][studentList.group][studentList.lab].exam.allow--;
         storage[studentList.year][studentList.group][studentList.lab].exam.block++;
         storage[studentList.year][studentList.group].exam.allowed[student.profile] = 0;
         delete (storage[studentList.year][studentList.group].exam.alloweduid[student.uid]);
       }
       else {
         gradeDom.classList.remove('issue');
+        storage[studentList.year][studentList.group][studentList.lab].exam.block--;
         storage[studentList.year][studentList.group][studentList.lab].exam.allow++;
         storage[studentList.year][studentList.group].exam.allowed[student.profile] = res;
         storage[studentList.year][studentList.group].exam.alloweduid[student.uid] = student.profile;
@@ -643,9 +668,9 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
       dom.style.display = '';
       dom.addEventListener('click', exportD);
       function exportD() {
-        if(Object.keys(canExport).length===0){
-            Core.popup('No Tabs for export was found.\nOpen Mano system in another tab of your browser or refresh required tab.');
-            return;
+        if (Object.keys(canExport).length === 0) {
+          Core.popup('No Tabs for export was found.\nOpen Mano system in another tab of your browser or refresh required tab.');
+          return;
         }
         Core.browser.sendData('setValuesForLab', JSON.stringify(storage));
         localStorage.setItem('allStudentsLabGrades', JSON.stringify(storage));
@@ -737,33 +762,37 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
       var exam = cources[year][group];
       var students = page.querySelectorAll('.ir-contest-standings>tbody>tr');
       var total = page.querySelectorAll('table>thead th:not([class])').length;
-      students.forEach((student) => {
+      students.forEach(async (student) => {
         var studentID = `/${student.querySelector('a').getAttribute('href').split('?').pop().replace('=', 's/')}/`
         var done = Number(student.querySelector('.ir-problem-count').innerText);
         var result = done === 0 ? 0 : (done - 1) + 5;
+        if(result===0){
+          var participated = await Core.page.getPage(student.querySelector('td:nth-child(2)>a').getAttribute('href'));
+          if(!participated.documentElement.querySelector('table')){result='P'}
+        }
         exam.exam[studentID] = { done: done, total: total, grade: result, allowed: exam.exam.allowed[studentID] ? true : false };
       });
     }
 
-    const canExport={};
+    const canExport = {};
     Core.browser.addEventListener('webPageOpened', webPageOpened);
-    function webPageOpened(url){
-        Core.popup(`Connected with ${url}`);
-        canExport[url] = true;
+    function webPageOpened(url) {
+      Core.popup(`Connected with ${url}`);
+      canExport[url] = true;
     }
 
-      Core.help([
-          `<a style="color: orange">Orange grades</a> - are shifted grades, which are calculated as follows:
+    Core.help([
+      `<a style="color: orange">Orange grades</a> - are shifted grades, which are calculated as follows:
           If the grade of any laboratory work is below 5, then the tasks from the previous laboratory are transferred to the current one and subtracted from the previous laboratory.
           The shifted grades are used just in Mano system to set 5 for labs.`,
-          `<a style="color: red">Red grades</a> - displays students who are not allowed to participate in the exam.`,
-          `The <a style="color: blue">Export button</a> allows to export the grades of the students into Mano system.
+      `<a style="color: red">Red grades</a> - displays students who are not allowed to participate in the exam.`,
+      `The <a style="color: blue">Export button</a> allows to export the grades of the students into Mano system.
           In order to export grades follow the steps:
           1. Open Mano system in another TAB of the browser (exams and/or labs)
           2. Click Export button
           3. See the message in Mano system about imported grades
           4. Continue work in Mano system`
-      ]);
+    ]);
   }
   /* === */
 
@@ -776,13 +805,13 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
     var cources = localStorage.getItem('allStudentsLabGrades');
     if (!cources) { return; }
     var date = localStorage.getItem('allStudentsLabGrades_updateTime');
-    if(date){
-        date = new Date(date);
-        var cur = new Date();
-        var diffDays = Math.ceil(Math.abs(cur - date) / (1000 * 60 * 60 * 24))-1;
-        if(diffDays>0){
-            Core.popup(`Students grades was updated ${diffDays} day${diffDays>1?'s':''} ago`);
-        }
+    if (date) {
+      date = new Date(date);
+      var cur = new Date();
+      var diffDays = Math.ceil(Math.abs(cur - date) / (1000 * 60 * 60 * 24)) - 1;
+      if (diffDays > 0) {
+        Core.popup(`Students grades was updated ${diffDays} day${diffDays > 1 ? 's' : ''} ago`);
+      }
     }
     cources = JSON.parse(cources);
     var year = document.querySelector('.list-group-item-success>*:last-child').innerText.match(/(\d{4}-\d{4}|\d{4})/g)[0];
@@ -796,7 +825,7 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
       a.style = 'float: right;';
       a.innerHTML = grade[studentID];
 
-      if(grade[studentID]<5){
+      if (grade[studentID] < 5) {
         student.classList.add('issue');
       }
 
@@ -810,6 +839,9 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
     nav.navbar,.container>.panel-default,.container>.form-group,.footer{
       display:none !important;
     }
+    .container>.row>div{
+      display: none;
+    }
     .container{
       margin: 0;
       margin-top: 24px;
@@ -820,18 +852,37 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
     .block{
       border: 2px solid orange;
       border-radius: 6px;
-    }`);
+    }
+    colgroup.block{
+      border-top: 2px solid orange;
+      border-bottom: 2px solid orange;
+      border-left: 3px solid orange;
+      border-right: none;
+    }
+    colgroup.block+colgroup{
+      border-top: 2px solid orange;
+      border-bottom: 2px solid orange;
+      border-left: none;
+      border-right: none;
+    }
+    colgroup.block+colgroup+colgroup{
+      border-top: 2px solid orange;
+      border-bottom: 2px solid orange;
+      border-left: none;
+      border-right: 2px solid orange;
+    }
+    `);
     var col = [...document.querySelectorAll('.linenodiv>pre>a')];
-    for(let i = 0,l=col.length;i<l;i++){
-      col[i].addEventListener('click',function(){
-        var r = document.querySelector(`a[name="${this.getAttribute('href').replace('#','')}"]`);
-        this.style.display='none';
-        r.style.display='none';
+    for (let i = 0, l = col.length; i < l; i++) {
+      col[i].addEventListener('click', function () {
+        var r = document.querySelector(`a[name="${this.getAttribute('href').replace('#', '')}"]`);
+        this.style.display = 'none';
+        r.style.display = 'none';
         doe(r.nextElementSibling);
-        function doe(el){
-          if(el.getAttribute('name')){return}
-          el.style.display='none';
-          if(el.nextElementSibling){doe(el.nextElementSibling)}
+        function doe(el) {
+          if (el.getAttribute('name')) { return }
+          el.style.display = 'none';
+          if (el.nextElementSibling) { doe(el.nextElementSibling) }
         }
       })
     }
@@ -845,7 +896,26 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
     button.innerHTML = `<span class="ir-icon-label">📄Open comparer</span>`;
     document.querySelector('.list-group').appendChild(button);
 
-    function initCompare() {
+    function initCompare(event, type) {
+      if (!type) {
+        var prev = '';
+        if(document.querySelector('select[name="problem"]').selectedIndex==0){prev+='\nSelect the task to compare'};
+        if(document.querySelector('select[name="state"]').selectedIndex==0){prev+='\nSelect the status of the task'};
+        if(prev!==''){
+          var pop = Core.popup(`Before comparing:${prev}<button>OK</button></div>`, 'comparer_type', '', 10000000);
+          pop.eventMessage = function (button) {Core.popup(false, 'comparer_type');}
+          return;
+        }
+        var pop = Core.popup('Select comparer type:<button>iRunner</button><button>Another</button><button>Cancel</button></div>', 'comparer_type', '', 10000000);
+        pop.eventMessage = function (button) {
+          Core.popup(false, 'comparer_type');
+          var responce = button.innerText;
+          if(responce === 'Cancel'){return}
+          initCompare(null, responce);
+        }
+        return;
+      }
+      const comparerType = type;
       Core.style.addStyle('examComparer_main', `
       body{
         overflow: hidden;
@@ -859,9 +929,10 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
       .examComparison_container{
         position: fixed;top:0;left:0;bottom:0;right:0;z-index:99;display: flex;
         flex-wrap: wrap;
+        background: #e7e7e7;
       }
       .examComparison_container>div[data-window]{
-        flex:0.5;
+        flex:1;
         height: calc(100% - 42px);
       }
       .examComparison_container>div[data-window]>iframe{
@@ -908,14 +979,6 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
       ._footer .inact{
         opacity: 0.6;
       }
-      ._footer>.controls{
-        background: #939393;
-        height: 42px;
-        flex-basis: 3px;
-        margin-left: 7px;
-        margin-right: 7px;
-        margin-top: -6px;
-      }
       ._footer .prev,._footer .next,._footer .close,._footer .down,._footer .up {
         cursor: pointer;
       }
@@ -935,6 +998,115 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
       ._footer .close:hover,._footer .down:hover{
         opacity: 1;
       }
+      ._footer>.controls{
+        box-shadow: inset 0px -1px 0px 1px gray;
+        height: 46px;
+        flex-basis: 10px;
+        margin-left: 7px;
+        margin-right: 7px;
+        margin-top: -6px;
+        /*justify-content: center;*/
+        display: flex;
+        flex-direction: column;
+      }
+      ._footer>.controls input{
+        display: none;
+      }
+      ._footer>.controls label{
+        font-size: 12px;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        width: 0;
+        height: 0px;
+        transition: 0.3s;
+        text-wrap: nowrap;
+        cursor: pointer;
+      }
+      ._footer>.controls:hover>#smart_controls+label,
+      ._footer>.controls>#smart_controls:checked+label{
+        width: 20px;
+        height: 20px;
+        background: #e7e7e7;
+        border: 1px solid gray;
+        border-radius: 6px;
+        margin: 4px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      ._footer>.controls>#smart_controls+label:before{
+        scale: 0;
+        overflow: hidden;
+        content:"✔";
+        font-size: 16px;
+        transition: 0.3s;
+      }
+      ._footer>.controls:hover>#smart_controls+label:before{
+        color: gray;
+        scale: 1;
+      }
+      ._footer>.controls:hover>#smart_controls:checked+label:before{
+        scale: 0;
+      }
+      ._footer>.controls>#smart_controls:checked+label{
+        width: 142px;
+        margin-top: -20px;
+        border-radius: 6px 6px 0 0;
+        border-bottom: none;
+        margin-left: 0;
+        margin-right: 0;
+      }
+      ._footer>.controls>#smart_controls:checked+label:before{
+        content:"✘";
+      }
+      ._footer>.controls>#smart_controls:checked+label:hover:before{
+        scale: 1 !important;
+      }
+      ._footer>.controls>#smart_controls+label>span{
+        overflow: hidden;
+        max-width: 0px;
+        transition: 0.3s;
+        display: block;
+      }
+      ._footer>.controls>#smart_controls:checked+label>span{
+        max-width: 142px;
+        margin-left: -12px;
+      }
+      ._footer>.controls>#smart_controls:checked+label:hover>span{
+        margin-left: 0px;
+      }
+
+      ._footer>.controls>#smart_controls+label+div{
+        overflow: hidden;
+        max-height: 0px;
+        display: flex;
+        flex-direction: column;
+      }
+      ._footer>.controls>#smart_controls:checked+label+div{
+        max-height: 100px;
+      }
+      ._footer>.controls>#smart_controls:checked+label+div>label{
+        display: unset;
+        width: 140px;
+        height: 20px;
+      }
+      ._footer>.controls>div>input+label:before{
+        content: "";
+        background: #ebebeb;
+        width: 14px;
+        height: 14px;
+        display: inline-block;
+        border: 1px solid black;
+        border-radius: 4px;
+        margin-left: 5px;
+        font-size: 10px;
+        padding-left: 2px;
+        margin-right: 3px;
+      }
+      ._footer>.controls>div>input:checked+label:before{
+        content: "✔";
+      }
       `);
 
       var container = document.createElement('div');
@@ -945,9 +1117,10 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
         <div data-window="1">
           <iframe src="${url}" title="Original"></iframe>
         </div>
+        ${comparerType === 'Another' ? `
         <div data-window="2">
           <iframe src="${url}" title="Comparison"></iframe>
-        </div>
+        </div>`: ''}
         <div class="_footer">
           <div data-stud="1">
             <a></a>
@@ -960,7 +1133,14 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
             </div>
           </div>
           <div class="controls">
-
+            <input type="checkbox" id="smart_controls"></input>
+            <label for="smart_controls"><span>Settings</span></label>
+            <div>
+              <input type="checkbox" checked = "true"  id="smart_controls_skipWarned"></input>
+              <label title="Skip disqualifyed tasks in the right window" for="smart_controls_skipWarned">Skip disqualifyed</label>
+              <input type="checkbox" checked = "true"  id="smart_controls_rightPlusOne"></input>
+              <label title="In case the comparison is done in the following manner (left - right):\n1 - 1\n1 - 2\n1 - 3\n...\n1 - n\nThen combination of '2 - 1' was already done and as such,\nincrementation of student in left window should set right = left+1" for="smart_controls_rightPlusOne">Increment right side</label>
+            </div>
           </div>
           <div data-stud="2">
             <div class="controls">
@@ -976,33 +1156,104 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
 
       const win1 = container.querySelector('*[data-window="1"]>iframe');
       const win1Stud = container.querySelector('._footer>*[data-stud="1"]>.info');
-      const win1Prev = container.querySelector('._footer>*[data-stud="1"] .prev'); win1Prev.addEventListener('click', move.bind(win1Prev, 1, false));
-      const win1Next = container.querySelector('._footer>*[data-stud="1"] .next'); win1Next.addEventListener('click', move.bind(win1Next, 1, true));
+      const win1Prev = container.querySelector('._footer>*[data-stud="1"] .prev'); win1Prev.addEventListener('click', move.bind(win1Prev, 1, -1));
+      const win1Next = container.querySelector('._footer>*[data-stud="1"] .next'); win1Next.addEventListener('click', move.bind(win1Next, 1, 1));
 
-      const win1Down = container.querySelector('._footer>*[data-stud="1"] .down'); win1Down.addEventListener('click', down.bind(1, false));
-      const win2Down = container.querySelector('._footer>*[data-stud="2"] .down'); win2Down.addEventListener('click', down.bind(2, false));
-      const win1Up = container.querySelector('._footer>*[data-stud="1"] .up'); win1Up.addEventListener('click', down.bind(1, true));
-      const win2Up = container.querySelector('._footer>*[data-stud="2"] .up'); win2Up.addEventListener('click', down.bind(2, true));
+      const win1Down = container.querySelector('._footer>*[data-stud="1"] .down'); win1Down.addEventListener('click', down.bind(1, 0));
+      const win2Down = container.querySelector('._footer>*[data-stud="2"] .down'); win2Down.addEventListener('click', down.bind(2, 0));
+      const win1Up = container.querySelector('._footer>*[data-stud="1"] .up'); win1Up.addEventListener('click', down.bind(1, 1));
+      const win2Up = container.querySelector('._footer>*[data-stud="2"] .up'); win2Up.addEventListener('click', down.bind(2, 1));
       const winClose = container.querySelector('._footer .close'); winClose.addEventListener('click', close);
 
       const win2 = container.querySelector('*[data-window="2"]>iframe');
       const win2Stud = container.querySelector('._footer>*[data-stud="2"]>.info');
-      const win2Prev = container.querySelector('._footer>*[data-stud="2"] .prev'); win2Prev.addEventListener('click', move.bind(win2Prev, 2, false));
-      const win2Next = container.querySelector('._footer>*[data-stud="2"] .next'); win2Next.addEventListener('click', move.bind(win2Next, 2, true));
+      const win2Prev = container.querySelector('._footer>*[data-stud="2"] .prev'); win2Prev.addEventListener('click', move.bind(win2Prev, 2, -1));
+      const win2Next = container.querySelector('._footer>*[data-stud="2"] .next'); win2Next.addEventListener('click', move.bind(win2Next, 2, 1));
 
-      function check(res, el) {
-        res ? el.classList.add('inact') : el.previousElementSibling&&!el.previousElementSibling.classList.contains('down') ? el.previousElementSibling.classList.remove('inact') : el.nextElementSibling.classList.remove('inact');
+      const skipWanred = container.querySelector('._footer>.controls #smart_controls_skipWarned');
+      const rightPlusOne = container.querySelector('._footer>.controls #smart_controls_rightPlusOne');
+
+      function allowPrevNext(el,allowed){
+        allowed?el.classList.remove('inact'):el.classList.add('inact');
       }
 
-      function move(w, m) {
-        if (this.className.indexOf('inact') > -1) { return }
-        if (m) {
-          if (w == 1 && w1 < students.length - 1) { setWindow(1, students[++w1]); if (w1 + 1 == w2 && w1 + 2 == students.length - 1 || w1 == students.length - 1) { check(true, this); } else { check(false, this) } }
-          else if (w == 2 && w2 < students.length - 1) { if ((w2+1==w1&&w2+1<students.length)||(w2+2<students.length&&students[w2+1].children[2].innerText==students[w1].children[2].innerText)||(w2+2<students.length&&(students[w2+1].classList.contains('warning')||students[w2+1].children[0].children[0].checked))) { ++w2; move.call(this, w, m); return; }; setWindow(2, students[++w2]); if (w2 + 1 == w1 && w2 + 2 == students.length - 1 || w2 == students.length - 1) { check(true, this); } else { check(false, this) } }
+      function move(w, m, isMove=true) {
+        if(this&&this.classList.contains('inact')){return}
+        if (w == 1) {
+          if (m > 0) {
+            /* Left window increase students number */
+            if(w1+m===w2){
+              if(!rightPlusOne.checked){
+                w2<students.length - 1?move(w,m+1, isMove):allowPrevNext(win1Next,false);
+                return;
+              }
+            }
+            if(w1+m<students.length - 1&&students[w1].children[2].innerText == students[w1 + m].children[2].innerText){
+              move(w,m+1, isMove); return;
+            }
+            if (w1+m < students.length) {
+              if(isMove){w1+=m;setWindow(1, students[w1]); allowPrevNext(win1Prev,true); move(1,1,false)};
+            }
+            else{
+              allowPrevNext(win1Next,false);
+            }
+          }
+          else {
+            /* Left window decrease students number */
+            if(w1+m===w2){
+              w2>0?move(w,m-1, isMove):allowPrevNext(win1Prev,false);
+              return;
+            }
+            if(w1+m>-1&&students[w1].children[2].innerText == students[w1 + m].children[2].innerText){
+              move(w,m-1, isMove); return;
+            }
+            if (w1+m > -1) {
+              if(isMove){w1+=m;setWindow(1, students[w1]); allowPrevNext(win1Next,true); move(1,-1,false);}
+              else{allowPrevNext(win2Prev,true);}
+            }
+            else{
+              allowPrevNext(win1Prev,false);
+            }
+          }
+          if (rightPlusOne.checked && w1 + 1 < students.length) {
+            if(isMove){w2 = w1;move(2,1); move(2,-1,false);move(2,1,false);};
+          }
         }
         else {
-          if (w == 1 && w1 > 0) { setWindow(1, students[--w1]); if (w1 - 1 == w2 && w1 - 2 < 0 || w1 == 0) { check(true, this); } else { check(false, this) } }
-          else if (w == 2 && w2 > 0) { if ((w2-1==w1&&w2-1>-1)||(w2-2>-1&&students[w2-1].children[2].innerText==students[w1].children[2].innerText)||w2-2>-1&&(students[w2-1].classList.contains('warning')||students[w2-1].children[0].children[0].checked)) { --w2; move.call(this, w, m); return; }; setWindow(2, students[--w2]); if (w2 - 1 == w1 && w2 - 2 < 0 || w2 == 0) { check(true, this); } else { check(false, this) } }
+          if (m > 0) {
+            /* Right window increase students number */
+            if(w2+m===w1||w2+m < students.length&&(skipWanred.checked&&students[w2+m].classList.contains('warning')||students[w1].children[2].innerText == students[w2 + m].children[2].innerText)){
+              w2+m<students.length - 1?move(w,m+1,isMove):allowPrevNext(win2Next,false);
+              return;
+            }
+            if(w2+m<students.length - 1&&students[w2].children[2].innerText == students[w2 + m].children[2].innerText){
+              move(w,m+1, isMove); return;
+            }
+            if (w2+m < students.length) {
+              if(isMove){w2+=m;setWindow(2, students[w2]); allowPrevNext(win2Prev,true); move(2,1,false)}
+              else{allowPrevNext(win2Next,true);}
+            }
+            else{
+              allowPrevNext(win2Next,false);
+            }
+          }
+          else {
+            /* Right window decrease students number */
+            if(w2+m===w1||w2+m > -1&&(skipWanred.checked&&students[w2+m].classList.contains('warning')||students[w1].children[2].innerText == students[w2 + m].children[2].innerText)){
+              w2+m>0?move(w,m-1,isMove):allowPrevNext(win2Prev,false);
+              return;
+            }
+            if(w2+m> -1&&students[w2].children[2].innerText == students[w2 + m].children[2].innerText){
+              move(w,m-1, isMove); return;
+            }
+            if (w2+m > -1) {
+              if(isMove){w2+=m;setWindow(2, students[w2]); allowPrevNext(win2Next,true); move(2,-1,false)}
+              else{allowPrevNext(win2Prev,true);}
+            }
+            else{
+              allowPrevNext(win2Prev,false);
+            }
+          }
         }
       }
 
@@ -1010,20 +1261,78 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
         document.body.removeChild(container);
         document.head.removeChild(document.getElementById('examComparer_main'));
       }
-      function down(good) {
-        var s = this === 1 ? students[w1].children[0].children[0] : students[w2].children[0].children[0];
-        if (good) { s.checked = false }
-        else { s.checked = true }
+
+      /* Dis/Qualify solution of the student in the exam */
+      async function down(good) {
+        async function dis_qualify(ids, action) {
+          var req = '';
+          ids.forEach((id)=>{req+=`&id=${id}`})
+          var secret = document.querySelector('form[method="post"]>input[type="hidden"]');
+          return await fetch(window.location.href, {
+            "headers": {
+              "content-type": "application/x-www-form-urlencoded",
+              "upgrade-insecure-requests": "1",
+            },
+            "body": `${secret.getAttribute('name')}=${secret.value}${req}&${action}=`,
+            "method": "POST"
+          }).then((res) => { return !res.ok ? false : true })
+        }
+        function collectAllAcceptedSolution(s, good){
+          var ids = [];
+          var studentName = s.children[2].innerText;
+          [...s.parentElement.children].forEach((row)=>{
+            if(row.children[2].innerText===studentName){
+              ids.push(row.querySelector('input').value);
+              good?row.classList.remove('warning'):row.classList.add('warning');
+            }
+          });
+          return ids;
+        }
+        var s = this === 1 ? students[w1] : students[w2];
+        var ids = collectAllAcceptedSolution(s, good);
+        if (good) {
+          var res = await dis_qualify(ids, 'qualify');
+          if (res) {
+            s.checked = true;
+            setWanrirgs.call(this,null,false);
+            Core.popup(`Qualifyed${ids.length>1?` (${ids.length})`:''}`, '', '', 1500);
+          }
+        }
+        else {
+          var res = await dis_qualify(ids, 'disqualify');
+          if (res) {
+            s.checked = true;
+            setWanrirgs.call(this,null,true);
+            Core.popup(`Disqualifyed${ids.length>1?` (${ids.length})`:''}`, '', '', 1500);
+          }
+        }
       }
 
 
       var students = document.querySelectorAll('table>tbody>tr');
       var w1 = 0;
-      var w2 = 1;
+      var w2 = 0;
       const storage = { 1: { el: [], val: [] }, 2: { el: [], val: [] } }
 
       setWindow(1, students[w1]);
-      setWindow(2, students[w2]);
+      move(2,1);
+
+
+      function setWanrirgs(student,action){
+        var win = comparerType === 'Another'?this:1;
+        var frame = document.querySelector(`*[data-window="${win}"] iframe`).contentDocument.body;
+        if(frame.children.length===0){
+          setTimeout(setWanrirgs.bind(this),100);
+          return;
+        }
+        if (student&&student.classList.contains('warning')||action) {
+          comparerType === 'Another' ? frame.querySelector('.codehilite').classList.add('block') : frame.querySelector(`.diff colgroup:nth-child(${(this * 3) - 2})`).classList.add('block');
+        }
+        else {
+          comparerType === 'Another' ? frame.querySelector('.codehilite').classList.remove('block') : frame.querySelector(`.diff colgroup:nth-child(${(this * 3) - 2})`).classList.remove('block');
+        }
+      }
+
 
       function setWindow(win, student) {
         var windo = null;
@@ -1033,47 +1342,58 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
           windo = win1;
           windoStud = win1Stud;
           w = w1;
-          w2 = w1 !== 0 ? 0 : 1;
+          /*w2 = w1 !== 0 ? 0 : 1;
           setWindow(2, students[w2]);
           win2Next.classList.remove('inact');
-          win2Prev.classList.add('inact');
+          win2Prev.classList.add('inact');*/
         }
         else {
           windo = win2;
           windoStud = win2Stud;
           w = w2;
         }
-        windo.src = student.querySelector('a[class]').getAttribute('href');
-        var time = student.children[3].innerText.match(/..:.. .../);time = time?time[0]:'';
+        if (comparerType === 'Another') {
+          windo.src = student.querySelector('a[class]').getAttribute('href');
+          setTimeout(initCompareWindow.bind(student, win), 500);
+        }
+        else if (comparerType === 'iRunner') {
+          var first = students[w1].querySelector('a[class]').href.match(/\/solutions\/(.*?)\/source/)[1];
+          var second = students[w2].querySelector('a[class]').href.match(/\/solutions\/(.*?)\/source/)[1];
+          win1.src = `http://acm.vgtu.lt/solutions/compare/?first=${first}&second=${second}`;
+        }
+        var time = student.children[3].innerText.match(/..:.. .../); time = time ? time[0] : '';
         windoStud.innerHTML = `${student.children[2].innerText} / ${time}<span>${w + 1}/${students.length}</span>`;
-        setTimeout(initCompare.bind(student, win), 500);
+        setTimeout( setWanrirgs.bind(win, student), 500)
       }
 
-      function initCompare(win) {
+      function initCompareWindow(win) {
         var test = document.querySelector(`*[data-window="${win}"] iframe`).contentDocument.body;
         if (!test || !test.querySelector('.highlighttable .highlight>pre')) {
-          setTimeout(initCompare.bind(this, win), 1);
+          setTimeout(initCompareWindow.bind(this, win), 1);
           return;
         }
-        var op = win === 1 ? 2 : 1;
-        if (storage[op].el.length > 0) {
-          storage[op].el.forEach((el) => { el.style.background = 'none' });
+        storage[1].el.forEach((el) => { el.style.background = 'none' });
+        storage[2].el.forEach((el) => { el.style.background = 'none' });
+        storage[1] = { el: [], val: [] };
+        storage[2] = { el: [], val: [] };
+        function collectElements(code, win) {
+          [...code.children].forEach((word) => {
+            var text = word.innerText;
+            if (text == 'return' || text == 'begin' || text == '())' || text == 'main' || text == "using" || text == "namespace") { return }
+            if (text.length > 3) {
+              storage[win].el.push(word);
+              storage[win].val.push(text);
+            }
+          })
         }
-        storage[win] = { el: [], val: [] };
-        var code = document.querySelector(`*[data-window="${win}"] iframe`).contentDocument.body.querySelector('.highlighttable .highlight>pre');
-        [...code.children].forEach((word) => {
-          var text = word.innerText;
-          if (text == 'return' || text == 'begin' || text == '())' || text == 'main' || text == "using" || text == "namespace") { return }
-          if (text.length > 3) {
-            storage[win].el.push(word);
-            storage[win].val.push(text);
-          }
-        })
+        collectElements(document.querySelector(`*[data-window="${1}"] iframe`).contentDocument.body.querySelector('.highlighttable .highlight>pre'), 1);
+        collectElements(document.querySelector(`*[data-window="${2}"] iframe`).contentDocument.body.querySelector('.highlighttable .highlight>pre'), 2);
         compare(win);
-        if (this.classList.contains('warning')||this.children[0].children[0].checked) { code.closest('.codehilite').classList.add('block') } else { code.closest('.codehilite').classList.remove('block') }
       }
       function compare(win) {
-        if (win === 1 && storage[2].val.length === 0 || win === 2 && storage[1].val.length === 0) { return }
+        if (win === 1 && storage[2].val.length === 0 || win === 2 && storage[1].val.length === 0) {
+          return;
+        }
         for (let i = 0, l = storage[1].val.length; i < l; i++) {
           var idx = storage[2].val.indexOf(storage[1].val[i]);
           if (idx > 0) {
@@ -1094,7 +1414,7 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
 
   if (window.location.origin === 'https://rep.vgtu.lt') { manoStudentsGrades() }
   function manoStudentsGrades() {
-    Core.browser.sendData('webPageOpened', window.origin.replace('https://','').replace('http://',''));
+    Core.browser.sendData('webPageOpened', window.origin.replace('https://', '').replace('http://', ''));
     Core.browser.addEventListener('setValuesForLab', shareData);
     if (document.querySelector('.t-Body-title>.t-BreadcrumbRegion>.t-BreadcrumbRegion-buttons>button>.t-Button-label')) {
       var container = document.querySelector('.t-Body-title>.t-BreadcrumbRegion>.t-BreadcrumbRegion-buttons');
@@ -1116,13 +1436,13 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
     var data = localStorage.getItem('allStudentsLabGrades');
     if (!data) { return; }
     var date = localStorage.getItem('allStudentsLabGrades_updateTime');
-    if(date){
-        date = new Date(date);
-        var cur = new Date();
-        var diffDays = Math.ceil(Math.abs(cur - date) / (1000 * 60 * 60 * 24))-1;
-        if(diffDays>0){
-            Core.popup(`Students grades was updated ${diffDays} day${diffDays>1?'s':''} ago`);
-        }
+    if (date) {
+      date = new Date(date);
+      var cur = new Date();
+      var diffDays = Math.ceil(Math.abs(cur - date) / (1000 * 60 * 60 * 24)) - 1;
+      if (diffDays > 0) {
+        Core.popup(`Students grades was updated ${diffDays} day${diffDays > 1 ? 's' : ''} ago`);
+      }
     }
     data = JSON.parse(data);
     var students = document.querySelectorAll('.t-fht-tbody>table>tbody>tr:not(:first-of-type)');
@@ -1187,7 +1507,7 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
         Core.popup('All grades are accurate.');
       }
       else {
-        Core.popup(`${stats.diff} grades need to be updated`,'warn');
+        Core.popup(`${stats.diff} grades need to be updated`, 'warn');
       }
     }
 
@@ -1220,9 +1540,9 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
   function updateVisitedGroups() {
     /* Remove LogOut timer */
     APP_ENV_DEV = true;
-    setInterval(()=>{timeOutTime=999},120000)
+    setInterval(() => { timeOutTime = 999 }, 120000)
 
-    Core.browser.sendData('webPageOpened', window.origin.replace('https://','').replace('http://',''));
+    Core.browser.sendData('webPageOpened', window.origin.replace('https://', '').replace('http://', ''));
     Core.browser.addEventListener('setValuesForLab', shareData);
     function shareData(data, origin) {
       //if (origin != "http://acm.vgtu.lt/proff") { return }
@@ -1440,59 +1760,65 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
       }
     }
 
-    Core.popup = function (text, uid='', classN='', timer=10000) {
-      var div = document.getElementById('noCore_popup');
+    Core.popup = function (text, uid = '', classN = '', timer = 10000) {
+      var div = document.getElementById('PopUp_' + uid);
       var event = null;
-      if(div){
-          event = div.eventMessage;
-          if(div.UID === uid){
-              clearTimeout(div.timeOut);
-              document.body.removeChild(div);
-          }
-          else{
-              setTimeout(()=>{
-                  div.setAttribute('style',`bottom:${div.clientHeight+24}px !important`);
-              },10);
-          }
+      if (div) {
+        event = div.eventMessage;
+        if (div.id === 'PopUp_' + uid) {
+          clearTimeout(div.timeOut);
+          document.body.removeChild(div);
+        }
+        else {
+          setTimeout(() => {
+            div.setAttribute('style', `bottom:${div.clientHeight + 24}px !important`);
+          }, 10);
+        }
       };
-      if(!text){return;}
+      if (!text) { return; }
       div = document.createElement('div');
-      div.id = 'noCore_popup';
-      div.UID = uid;
-      div.className = 'noCore_popup '+classN;
+      div.id = 'PopUp_' + uid;
+      //uid?div.UID = 'PopUp_'+uid:null;
+      div.className = 'noCore_popup ' + classN;
       div.innerHTML = `<p>${text}</p>`;
       document.body.appendChild(div);
       div.timeOut = setTimeout(function () { document.body.removeChild(this) }.bind(div), timer)
       var button = [...div.querySelectorAll('button')];
-      function action(button){
-          this.eventMessage(button);
+      if (button.length > 1) {
+        var dom = document.createElement('div');
+        dom.className = 'buttons';
+        div.appendChild(dom);
+        button.forEach((b) => { dom.appendChild(b) });
       }
-      if(button.length>0){
-          button.forEach((b)=>{
-             b.addEventListener('click', action.bind(div,b));
-          })
+      function action(button) {
+        this.eventMessage(button);
+      }
+      if (button.length > 0) {
+        button.forEach((b) => {
+          b.addEventListener('click', action.bind(div, b));
+        })
       }
       return div;
     }
 
-    Core.help = function (array){
-        var help = document.createElement('div');
-        help.className = 'noCore_help';
-        help.innerHTML = '❔';
-        help.addEventListener('click',showHelp);
-        document.body.appendChild(help);
-        const messages = [...array];
-        function showHelp(){
-            var mess = messages.shift();
-            if(mess){
-                var bottom = messages.length>0?'<button>Next</button>':'<button>Close</button>';
-                var dom = Core.popup(mess+bottom, 'helpPOP', 'help', 9999999);
-                dom.eventMessage = showHelp;
-            }
-            else{
-                Core.popup(false,'helpPOP');
-            }
+    Core.help = function (array) {
+      var help = document.createElement('div');
+      help.className = 'noCore_help';
+      help.innerHTML = '❔';
+      help.addEventListener('click', showHelp);
+      document.body.appendChild(help);
+      const messages = [...array];
+      function showHelp() {
+        var mess = messages.shift();
+        if (mess) {
+          var bottom = messages.length > 0 ? '<button>Next</button>' : '<button>Close</button>';
+          var dom = Core.popup(mess + bottom, 'help', 'help', 9999999);
+          dom.eventMessage = showHelp;
         }
+        else {
+          Core.popup(false, 'help');
+        }
+      }
     }
 
     checkForUpdate(Core);
@@ -1502,48 +1828,48 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
 
 
 
-    /* Check For Updates */
-    function checkForUpdate(noCore){
-        if(!updateCheck){return};
-        var lastTry = localStorage.getItem('VGTUProfessoring_updateTry');
-        if(lastTry){
-            lastTry = Math.ceil((new Date().getTime() - new Date(JSON.parse(lastTry)).getTime()) / 1000/60/60/24)-1;
-        }
-        else{
-            localStorage.setItem('VGTUProfessoring_updateTry',JSON.stringify(new Date()))
-            lastTry = 0;
-        }
-        if(lastTry<1){return}
-        fetch(checkUrl)
-        .then(response => response.text())
-        .then(data => {
-            const match = data.match(/@version\s+(\d+\.\d+)/);
-            if (match) {
-                const githubVersion = parseFloat(match[1]);
-                const currentVersion = parseFloat(GM_info.script.version);
-
-                if (githubVersion > currentVersion) {
-                    var pop = noCore.popup('VGTUProfessoring \nNew version available.<div style="display: flex;justify-content: space-around;"><button style="margin:0;">Update</button><button style="margin:0;">Cancel</button></div>','',10);
-                    pop.eventMessage = function(button){
-                        noCore.popup(false);
-                        var responce = button.innerText;
-                        if(responce === 'Update'){
-                            window.location.replace(scriptUrl);
-                        }
-                        else{
-                            localStorage.setItem('VGTUProfessoring_updateTry',JSON.stringify(new Date()));
-                        }
-                    }
-
-                } else {
-                    console.log('VGTUProfessoring: You have the latest version of the script.');
-                }
-            } else {
-                console.error('VGTUProfessoring: Unable to extract version from the GitHub script.');
-            }
-        })
-        .catch(error => {
-            console.error('VGTUProfessoring: Error checking for updates:', error);
-        });
+  /* Check For Updates */
+  function checkForUpdate(noCore) {
+    if (!updateCheck) { return };
+    var lastTry = localStorage.getItem('VGTUProfessoring_updateTry');
+    if (lastTry) {
+      lastTry = Math.ceil((new Date().getTime() - new Date(JSON.parse(lastTry)).getTime()) / 1000 / 60 / 60 / 24) - 1;
     }
+    else {
+      localStorage.setItem('VGTUProfessoring_updateTry', JSON.stringify(new Date()))
+      lastTry = 0;
+    }
+    if (lastTry < 1) { return }
+    fetch(checkUrl)
+      .then(response => response.text())
+      .then(data => {
+        const match = data.match(/@version\s+(\d+\.\d+)/);
+        if (match) {
+          const githubVersion = parseFloat(match[1]);
+          const currentVersion = parseFloat(GM_info.script.version);
+
+          if (githubVersion > currentVersion) {
+            var pop = noCore.popup('VGTUProfessoring \nNew version available.<button>Update</button><button>Cancel</button>', 'update', '', 10);
+            pop.eventMessage = function (button) {
+              noCore.popup(false);
+              var responce = button.innerText;
+              if (responce === 'Update') {
+                window.location.replace(scriptUrl);
+              }
+              else {
+                localStorage.setItem('VGTUProfessoring_updateTry', JSON.stringify(new Date()));
+              }
+            }
+
+          } else {
+            console.log('VGTUProfessoring: You have the latest version of the script.');
+          }
+        } else {
+          console.error('VGTUProfessoring: Unable to extract version from the GitHub script.');
+        }
+      })
+      .catch(error => {
+        console.error('VGTUProfessoring: Error checking for updates:', error);
+      });
+  }
 })();
