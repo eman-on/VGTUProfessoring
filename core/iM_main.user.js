@@ -1849,7 +1849,7 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
           const currentVersion = parseFloat(GM_info.script.version);
 
           if (githubVersion > currentVersion) {
-            var pop = noCore.popup('VGTUProfessoring \nNew version available.<button>Update</button><button>Cancel</button>', 'update', '', 10);
+            var pop = noCore.popup('VGTUProfessoring \nNew version available.<button>Update</button><button>Cancel</button>', 'update', '', 10000);
             pop.eventMessage = function (button) {
               noCore.popup(false);
               var responce = button.innerText;
