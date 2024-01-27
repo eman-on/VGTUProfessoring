@@ -10,7 +10,6 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=vgtu.lt
 // @updateURL    https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js
 // @downloadURL  https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js
-// @updateURL    https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM.setValue
