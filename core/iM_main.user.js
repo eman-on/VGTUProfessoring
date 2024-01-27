@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         VGTU - Professorin
-// @version      0.2
+// @version      0.3
 // @description  Table with ALL students, Exam and Labs grades automation, Core comparer
 // @author       mrNull
 // @match        http://acm.vgtu.lt/*
@@ -8,8 +8,8 @@
 // @match        https://mano.vilniustech.lt/lecturercourses/site?*
 // @match        https://mano.vilniustech.lt/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=vgtu.lt
-// @updateURL    https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js
 // @downloadURL  https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js
+// @updateURL    https://raw.githubusercontent.com/eman-on/VGTUProfessoring/main/core/iM_main.user.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM.setValue
@@ -25,9 +25,6 @@
  * Move function (prev/next student) in comparer reworked
  * Settings for comparers are added - skip disqualifyed tasks, increment right window
  */
-
-const checkUrl = 'https://raw.githubusercontent.com/eman-on/VGTUProfessoring/main/core/iM_main.user.js';
-const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_main.user.js';
 
 (async function init() {
   'use strict';
@@ -1839,7 +1836,7 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
       lastTry = 0;
     }
     if (lastTry < 1) { return }
-    fetch(checkUrl)
+    fetch(GM_info.script.updateURL)
       .then(response => response.text())
       .then(data => {
         const match = data.match(/@version\s+(\d+\.\d+)/);
@@ -1853,7 +1850,7 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
               noCore.popup(false);
               var responce = button.innerText;
               if (responce === 'Update') {
-                window.location.replace(scriptUrl);
+                window.location.replace(GM_info.script.downloadURL);
               }
               else {
                 localStorage.setItem('VGTUProfessoring_updateTry', JSON.stringify(new Date()));
