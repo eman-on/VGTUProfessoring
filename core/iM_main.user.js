@@ -34,7 +34,7 @@ const scriptUrl = 'https://github.com/eman-on/VGTUProfessoring/raw/main/core/iM_
   'use strict';
   /* Specify minimal required grade to get access to the exam */
   // Checks for updates
-  const updateCheck = false;
+  const updateCheck = true;
   const minGrade = 5;
   const Core = CORE();
   var storage = null;
