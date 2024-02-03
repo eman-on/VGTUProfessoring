@@ -302,6 +302,7 @@
                 localStorage.removeItem('disqualification_attempt'); window.location = 'http://acm.vgtu.lt/';
             }
             function update(){
+                console.log(GM_info.script.downloadURL);
                 window.location.replace(GM_info.script.downloadURL);
             }
             function createButton(value,action,type='button'){
