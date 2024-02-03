@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         VGTU - Professorin
-// @version      0.3
+// @name         VGTU - Professorin (DEV)
+// @version      0.4
 // @description  Table with ALL students, Exam and Labs grades automation, Core comparer
 // @author       mrNull
 // @match        http://acm.vgtu.lt/*
@@ -1836,7 +1836,7 @@
       lastTry = 0;
     }
     if (lastTry < 1) { return }
-    fetch(GM_info.script.updateURL)
+    fetch(GM_info.script.updateURL+'?'+new Date().getTime())
       .then(response => response.text())
       .then(data => {
         const match = data.match(/@version\s+(\d+\.\d+)/);
@@ -1844,13 +1844,13 @@
           const githubVersion = parseFloat(match[1]);
           const currentVersion = parseFloat(GM_info.script.version);
 
-          if (githubVersion > currentVersion) {
+          if (githubVersion != currentVersion) {
             var pop = noCore.popup('VGTUProfessoring \nNew version available.<button>Update</button><button>Cancel</button>', 'update', '', 10000);
             pop.eventMessage = function (button) {
               noCore.popup(false);
               var responce = button.innerText;
               if (responce === 'Update') {
-                window.location.replace(GM_info.script.downloadURL);
+                window.location.replace(GM_info.script.downloadURL+'?'+new Date().getTime());
               }
               else {
                 localStorage.setItem('VGTUProfessoring_updateTry', JSON.stringify(new Date()));
