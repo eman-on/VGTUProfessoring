@@ -318,7 +318,7 @@
             checkUpdate(createButton);
         }
         function checkUpdate(createButton) {
-            fetch(GM_info.script.updateURL)
+            fetch(GM_info.script.updateURL+'?'+new Date().getTime())
                 .then(response => response.text())
                 .then(data => {
                     const match = data.match(/@version\s+(\d+\.\d+)/);
