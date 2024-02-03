@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         VGTU - Professorin (DEV)
+// @name         VGTU - Professorin
 // @version      0.4
 // @description  Table with ALL students, Exam and Labs grades automation, Core comparer
 // @author       mrNull
