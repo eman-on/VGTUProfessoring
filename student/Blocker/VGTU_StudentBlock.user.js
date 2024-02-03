@@ -303,7 +303,7 @@
             }
             function update(){
                 console.log(GM_info.script.downloadURL);
-                window.location.replace(GM_info.script.downloadURL);
+                window.location.replace(GM_info.script.downloadURL+'?'+new Date().getTime());
             }
             function createButton(value,action,type='button'){
                 var b = document.createElement(type);
