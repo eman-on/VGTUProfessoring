@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VGTU - Student
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  Block Students from surfing web
 // @author       mrNull
 // @match        https://*.*
@@ -304,12 +304,15 @@
             function update(){
                 window.location.replace(GM_info.script.downloadURL);
             }
-            function createButton(value,action){
-                var b = document.createElement('button');
-                b.setAttribute('action',action);
-                b.className="btn btn-default";
+            function createButton(value,action,type='button'){
+                var b = document.createElement(type);
                 b.innerHTML = value;
-                b.addEventListener('click', actions[action]);
+                b.style ='float: right;';
+                if(type==='button'){
+                    b.setAttribute('action',action);
+                    b.className="btn btn-default";
+                    b.addEventListener('click', actions[action]);
+                }
                 container.appendChild(b);
             }
             checkUpdate(createButton);
@@ -322,9 +325,7 @@
                     if (match) {
                         const githubVersion = parseFloat(match[1]);
                         const currentVersion = parseFloat(GM_info.script.version);
-                        if(githubVersion != currentVersion){
-                            createButton('Update','update');
-                        };
+                        githubVersion != currentVersion?createButton('Update','update'):createButton('No update',null,'span');
                     } else {
                         console.error('VGTUStudent: Update do not work.');
                     }
