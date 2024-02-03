@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VGTU - Student
 // @namespace    http://tampermonkey.net/
-// @version      0.3
+// @version      0.1
 // @description  Block Students from surfing web
 // @author       mrNull
 // @match        https://*.*
