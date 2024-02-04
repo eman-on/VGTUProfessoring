@@ -31,7 +31,8 @@
             }, 0)
         }
         else {
-            if (data().get('ban') && window.location.href !== 'http://acm.vgtu.lt/disqualification') {
+            const ban = data().get('ban');
+            if ( ban && window.location.href !== 'http://acm.vgtu.lt/disqualification') {
                 noRedirent = false;
                 window.location = 'http://acm.vgtu.lt/disqualification';
                 setInterval(() => {
@@ -46,7 +47,7 @@
                 }, 0)
             }
             var acceptedTerms = data().get('examAccepted');
-            if (window.location.host == 'acm.vgtu.lt' && !acceptedTerms && noRedirent || window.location.href === 'http://acm.vgtu.lt/examTerms') {
+            if (window.location.host == 'acm.vgtu.lt' && !acceptedTerms &&!ban && noRedirent || window.location.href === 'http://acm.vgtu.lt/examTerms') {
                 termsAndCond(acceptedTerms);
                 return;
             }
