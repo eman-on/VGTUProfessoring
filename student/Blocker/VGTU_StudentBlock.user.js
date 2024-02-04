@@ -69,7 +69,7 @@
     }
     function disqualification() {
         const maxAttempts = 3;
-        window.title = 'Disqualification';
+        document.title = 'Disqualification';
         var message = document.getElementById('ir_container');
         if (!message) { return };
         var remove = localStorage.getItem('disqualification_timer');
@@ -227,7 +227,7 @@
             if (message) { initTerms() };
         }
         function initTerms() {
-            unsafeWindow.title = 'Examination';
+            document.title = 'Examination';
             message.querySelector('.text-danger').innerHTML = '<b>Examination procedure</b>';
             message.querySelector('p').innerHTML = `<h2 class="text-danger">Rules for taking the exam:</h2>
                 <p>1. It is forbidden to visit any online resource apart from examination system</p>
